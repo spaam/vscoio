@@ -6,15 +6,17 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/lestrrat-go/strftime"
+	"github.com/schollz/progressbar/v3"
 	"github.com/spaam/vscoio/internal/collect"
 	"github.com/tidwall/gjson"
 	"github.com/ulikunitz/xz"
 )
 
-func Download(nometadata bool, Users []collect.User) {
+func Download(nometadata bool, threads int, Users []collect.User) {
 	for _, user := range Users {
 		var dl_list []string
 		name := user.Name
@@ -29,29 +31,49 @@ func Download(nometadata bool, Users []collect.User) {
 				dl_list = append(dl_list, pic)
 			}
 		}
+		bar := progressbar.Default(int64(len(dl_list)), name)
+		var wg sync.WaitGroup
+		ch := make(chan string, threads)
 
-		for _, picture := range dl_list {
-			resp, err := http.Get(fmt.Sprintf("https://%s", getResponsiveurl(picture)))
-			if err != nil {
-				panic(err)
-			}
-			defer resp.Body.Close()
-			body, _ := ioutil.ReadAll(resp.Body)
-			fd, err := os.Create(fmt.Sprintf("%s/%s", user.Name, filename(getUploadDate(picture))))
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-			fd.Write(body)
-			fd.Close()
-			if !nometadata {
-				fd2, _ := os.Create(fmt.Sprintf("%s/%s.json.xz", user.Name, filename(getUploadDate(picture))))
-				w, _ := xz.NewWriter(fd2)
-				w.Write([]byte(picture))
-				w.Close()
-				fd2.Close()
-			}
+		for i := 0; i < threads; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for d := range ch {
+					getPictures(nometadata, d, user)
+				}
+			}()
 		}
+		for _, picture := range dl_list {
+			bar.Add(1)
+			ch <- picture
+		}
+		close(ch)
+		wg.Wait()
+	}
+}
+
+func getPictures(nometadata bool, picture string, user collect.User) {
+	resp, err := http.Get(fmt.Sprintf("https://%s", getResponsiveurl(picture)))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer resp.Body.Close()
+	body, _ := ioutil.ReadAll(resp.Body)
+	fd, err := os.Create(fmt.Sprintf("%s/%s", user.Name, filename(getUploadDate(picture))))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fd.Write(body)
+	fd.Close()
+	if !nometadata {
+		fd2, _ := os.Create(fmt.Sprintf("%s/%s.json.xz", user.Name, filename(getUploadDate(picture))))
+		w, _ := xz.NewWriter(fd2)
+		w.Write([]byte(picture))
+		w.Close()
+		fd2.Close()
 	}
 }
 
