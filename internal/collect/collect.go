@@ -8,7 +8,6 @@ import (
 	"os"
 	"regexp"
 
-	"github.com/schollz/progressbar/v3"
 	"github.com/tidwall/gjson"
 )
 
@@ -19,13 +18,11 @@ type User struct {
 
 func Scrape(fastupdate bool, profiles []string) (users []User) {
 	re := regexp.MustCompile(`__PRELOADED_STATE__ = (.*)<\/script>`)
-	bar := progressbar.Default(int64(len(profiles)), "Scraping")
 	for _, profile := range profiles {
 		fast := fastupdate
 		if _, err := os.Stat(fmt.Sprintf("%s", profile)); err != nil {
 			fast = false
 		}
-		bar.Add(1)
 		urladdr := fmt.Sprintf("https://vsco.co/%s/gallery", profile)
 		var more bool
 		more = true
@@ -83,6 +80,5 @@ func Scrape(fastupdate bool, profiles []string) (users []User) {
 			users = append(users, user)
 		}
 	}
-	bar.Close()
 	return users
 }
