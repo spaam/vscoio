@@ -11,7 +11,9 @@ import (
 func main() {
 	var nometadata bool
 	var threads int
+	var fastupdate bool
 	flag.BoolVar(&nometadata, "no-metadata", false, "Dont create metadata files")
+	flag.BoolVar(&fastupdate, "fast-update", false, "Stop downloading files when we detect existing one")
 	flag.IntVar(&threads, "threads", 10, "Number of concurrent requests")
 	flag.Parse()
 	profiles := flag.Args()
@@ -20,7 +22,8 @@ func main() {
 		fmt.Println("vscoio: error: need profiles as arguments")
 	}
 	fmt.Println("scrape profiles for pictures")
-	users := collect.Scrape(profiles)
+	users := collect.Scrape(fastupdate, profiles)
 
-	download.Download(nometadata, threads, users)
+	total := download.Download(nometadata, fastupdate, threads, users)
+	fmt.Printf("Total new pictures: %d\n", total)
 }

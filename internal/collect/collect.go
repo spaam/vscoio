@@ -5,8 +5,10 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 
+	"github.com/schollz/progressbar/v3"
 	"github.com/tidwall/gjson"
 )
 
@@ -15,9 +17,15 @@ type User struct {
 	Pictures []string
 }
 
-func Scrape(profiles []string) (users []User) {
+func Scrape(fastupdate bool, profiles []string) (users []User) {
 	re := regexp.MustCompile(`__PRELOADED_STATE__ = (.*)<\/script>`)
+	bar := progressbar.Default(int64(len(profiles)), "Scraping")
 	for _, profile := range profiles {
+		fast := fastupdate
+		if _, err := os.Stat(fmt.Sprintf("%s", profile)); err != nil {
+			fast = false
+		}
+		bar.Add(1)
 		urladdr := fmt.Sprintf("https://vsco.co/%s/gallery", profile)
 		var more bool
 		more = true
@@ -38,7 +46,7 @@ func Scrape(profiles []string) (users []User) {
 			id := gjson.Get(data[1], fmt.Sprintf("sites.siteByUsername.%s.site.id", profile))
 			token := gjson.Get(data[1], "users.currentUser.tkn")
 			nextcursor := gjson.Get(data[1], fmt.Sprintf("medias.bySiteId.%s.nextCursor", id)).String()
-			if nextcursor == "" {
+			if nextcursor == "" || fast {
 				more = false
 			}
 			result := gjson.Get(data[1], "entities.images.@keys")
@@ -75,5 +83,6 @@ func Scrape(profiles []string) (users []User) {
 			users = append(users, user)
 		}
 	}
+	bar.Close()
 	return users
 }

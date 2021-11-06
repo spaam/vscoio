@@ -7,16 +7,17 @@ import (
 	"net/http"
 	"os"
 	"sync"
-	"time"
 
-	"github.com/lestrrat-go/strftime"
+	"github.com/spaam/vscoio/internal/utils"
+
 	"github.com/schollz/progressbar/v3"
 	"github.com/spaam/vscoio/internal/collect"
 	"github.com/tidwall/gjson"
 	"github.com/ulikunitz/xz"
 )
 
-func Download(nometadata bool, threads int, Users []collect.User) {
+func Download(nometadata bool, fastupdate bool, threads int, Users []collect.User) int {
+	var total int
 	for _, user := range Users {
 		var dl_list []string
 		name := user.Name
@@ -25,12 +26,20 @@ func Download(nometadata bool, threads int, Users []collect.User) {
 			os.Mkdir(name, os.ModePerm)
 		}
 		files, _ := ioutil.ReadDir(name)
-
 		for _, pic := range user.Pictures {
-			if !stringInSlice(filename(getUploadDate(pic)), files) {
+			if fastupdate && !stringInSlice(utils.Filename(utils.GetUploadDate(pic)), files) {
+				dl_list = append(dl_list, pic)
+
+			} else if !fastupdate {
 				dl_list = append(dl_list, pic)
 			}
 		}
+
+		if len(dl_list) == 0 {
+			continue
+		}
+
+		total += len(dl_list)
 		bar := progressbar.Default(int64(len(dl_list)), name)
 		var wg sync.WaitGroup
 		ch := make(chan string, threads)
@@ -50,10 +59,16 @@ func Download(nometadata bool, threads int, Users []collect.User) {
 		}
 		close(ch)
 		wg.Wait()
+		bar.Close()
 	}
+	return total
 }
 
 func getPictures(nometadata bool, picture string, user collect.User) {
+	if _, err := os.Stat(fmt.Sprintf("%s/%s", user.Name, utils.Filename(utils.GetUploadDate(picture)))); err == nil {
+		fmt.Printf("%s file exists, skipping\n", fmt.Sprintf("%s/%s", user.Name, utils.Filename(utils.GetUploadDate(picture))))
+		return
+	}
 	resp, err := http.Get(fmt.Sprintf("https://%s", getResponsiveurl(picture)))
 	if err != nil {
 		fmt.Println(err)
@@ -61,7 +76,7 @@ func getPictures(nometadata bool, picture string, user collect.User) {
 	}
 	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)
-	fd, err := os.Create(fmt.Sprintf("%s/%s", user.Name, filename(getUploadDate(picture))))
+	fd, err := os.Create(fmt.Sprintf("%s/%s", user.Name, utils.Filename(utils.GetUploadDate(picture))))
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -69,20 +84,12 @@ func getPictures(nometadata bool, picture string, user collect.User) {
 	fd.Write(body)
 	fd.Close()
 	if !nometadata {
-		fd2, _ := os.Create(fmt.Sprintf("%s/%s.json.xz", user.Name, filename(getUploadDate(picture))))
+		fd2, _ := os.Create(fmt.Sprintf("%s/%s.json.xz", user.Name, utils.Filename(utils.GetUploadDate(picture))))
 		w, _ := xz.NewWriter(fd2)
 		w.Write([]byte(picture))
 		w.Close()
 		fd2.Close()
 	}
-}
-
-func getUploadDate(picture string) int64 {
-	value := gjson.Get(picture, "uploadDate")
-	if value.Exists() {
-		return value.Int() / 1000
-	}
-	return gjson.Get(picture, "upload_date").Int() / 1000
 }
 
 func getResponsiveurl(picture string) string {
@@ -100,13 +107,4 @@ func stringInSlice(a string, list []fs.FileInfo) bool {
 		}
 	}
 	return false
-}
-
-func filename(timestamp int64) string {
-	tm := time.Unix(timestamp, 0)
-	s, err := strftime.Format("%Y-%m-%d_%H-%M-%S", tm)
-	if err != nil {
-		panic(err)
-	}
-	return fmt.Sprintf("%s_UTC.jpg", s)
 }
