@@ -47,6 +47,10 @@ func Scrape(fastupdate bool, profiles []string) (users []User) {
 				more = false
 			}
 			result := gjson.Get(data[1], "entities.images.@keys")
+			if len(result.Array()) == 0 {
+				fmt.Printf("Profile %s pictures gone\n", profile)
+				continue
+			}
 			for _, key := range result.Array() {
 				result := gjson.Get(data[1], fmt.Sprintf("entities.images.%s", key))
 				user.Pictures = append(user.Pictures, result.String())
@@ -78,6 +82,9 @@ func Scrape(fastupdate bool, profiles []string) (users []User) {
 				}
 			}
 			users = append(users, user)
+		} else {
+			fmt.Printf("Profile %s pictures are gone\n", profile)
+			continue
 		}
 	}
 	return users
