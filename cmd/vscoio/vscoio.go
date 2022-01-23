@@ -20,6 +20,7 @@ func main() {
 
 	if len(profiles) == 0 {
 		fmt.Println("vscoio: error: need profiles as arguments")
+		return
 	}
 	fmt.Println("scrape profiles for pictures")
 	users := collect.Scrape(fastupdate, profiles)
