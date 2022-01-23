@@ -41,7 +41,7 @@ func Download(nometadata bool, fastupdate bool, threads int, Users []collect.Use
 		fmt.Printf("Retrieving pictures from profile %s.\n", user.Name)
 		for idx, picture := range dl_list {
 			if _, err := os.Stat(fmt.Sprintf("%s/%s", user.Name, utils.Filename(utils.GetUploadDate(picture)))); err == nil {
-				fmt.Printf("[ %d / %d ] %s/%s file exists, skipping\n", idx+1, len(dl_list), user.Name, fmt.Sprintf("%s/%s", user.Name, utils.Filename(utils.GetUploadDate(picture))))
+				fmt.Printf("[ %d / %d ] %s/%s file exists, skipping\n", idx+1, len(dl_list), user.Name, utils.Filename(utils.GetUploadDate(picture)))
 				continue
 			} else {
 				fmt.Printf("[ %d / %d ] %s/%s\n", idx+1, len(dl_list), user.Name, utils.Filename(utils.GetUploadDate(picture)))
