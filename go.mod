@@ -3,8 +3,8 @@ module github.com/spaam/vscoio
 go 1.17
 
 require (
-	github.com/lestrrat-go/strftime v1.0.5
-	github.com/tidwall/gjson v1.10.1
+	github.com/lestrrat-go/strftime v1.0.6
+	github.com/tidwall/gjson v1.14.1
 	github.com/ulikunitz/xz v0.5.10
 )
 
