@@ -23,7 +23,7 @@ func main() {
 		return
 	}
 	fmt.Println("scrape profiles for pictures")
-	users := collect.Scrape(fastupdate, profiles)
+	users := collect.Scrape(fastupdate, profiles, threads)
 
 	total := download.Download(nometadata, fastupdate, threads, users)
 	fmt.Printf("Total new pictures: %d\n", total)
